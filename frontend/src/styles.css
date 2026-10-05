@@ -1,0 +1,49 @@
+:root{--sage:#8a9a86;--sage-d:#66765f;--pink:#e8c9c9;--pink-d:#c98f95;--beige:#f3ebe0;--sand:#e4d6c3;--brown:#8b735f;--ink:#3b3530;--bg:#fbf8f3;--line:#e7ddd0}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Jost,system-ui,sans-serif;line-height:1.55}
+h1,h2,h3{font-family:'Cormorant Garamond',serif;font-weight:600;letter-spacing:.01em;margin:0 0 .5rem}
+h1{font-size:clamp(2.2rem,5vw,3.6rem);line-height:1.1}h2{font-size:1.9rem}h3{font-size:1.3rem}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--sage-d);outline-offset:2px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 1.25rem}
+header{border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:5}
+header .wrap{display:flex;align-items:center;justify-content:space-between;height:68px;gap:1rem}
+.logo{font-family:'Cormorant Garamond',serif;font-size:1.7rem;letter-spacing:.18em;text-decoration:none;color:var(--brown)}
+.logo small{display:block;font-family:Jost;font-size:.55rem;letter-spacing:.45em;margin-top:-4px}
+nav{display:flex;gap:1.1rem;align-items:center;font-size:.95rem;flex-wrap:wrap;justify-content:flex-end}
+nav a{text-decoration:none}nav a:hover{color:var(--sage-d)}
+.btn{background:var(--sage-d);color:#fff;border:0;padding:.7rem 1.4rem;border-radius:3px;font:inherit;cursor:pointer;text-decoration:none;display:inline-block}
+.btn:hover{background:#56654f}.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--sage-d);border:1px solid var(--sage)}
+.btn.sm{padding:.35rem .8rem;font-size:.85rem}
+.hero{background:linear-gradient(120deg,var(--pink) 0%,var(--beige) 70%);padding:4.5rem 0;margin-bottom:2.5rem}
+.hero p{max-width:34ch;font-size:1.1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1.5rem}
+.card{text-decoration:none;display:block}
+.card .img{aspect-ratio:4/5;background:var(--beige);overflow:hidden;border-radius:4px}
+.card img{width:100%;height:100%;object-fit:cover;display:block}
+.card .name{margin-top:.6rem}.price{color:var(--brown);font-weight:500}
+.empty{padding:3rem 1rem;text-align:center;color:var(--brown)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:2.5rem;margin:2rem 0}
+@media(max-width:760px){.cols{grid-template-columns:1fr}}
+.thumbs{display:flex;gap:.5rem;margin-top:.5rem}.thumbs img{width:64px;height:80px;object-fit:cover;border-radius:3px;cursor:pointer;border:2px solid transparent}.thumbs img.on{border-color:var(--sage-d)}
+.big{width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:4px;background:var(--beige)}
+label{display:block;font-size:.9rem;margin:.9rem 0 .3rem;color:var(--brown)}
+input,select,textarea{width:100%;padding:.65rem .75rem;border:1px solid var(--sand);border-radius:3px;font:inherit;background:#fff}
+.seg{display:flex;gap:.5rem;flex-wrap:wrap}
+.chip{padding:.45rem .9rem;border:1px solid var(--sand);border-radius:99px;background:#fff;cursor:pointer;font:inherit}
+.chip.on{background:var(--sage-d);color:#fff;border-color:var(--sage-d)}.chip:disabled{opacity:.4;text-decoration:line-through;cursor:not-allowed}
+.box{background:#fff;border:1px solid var(--line);border-radius:4px;padding:1.25rem;margin-bottom:1rem}
+.err{background:#fbe9e7;color:#8a3a31;padding:.6rem .8rem;border-radius:3px;margin:.8rem 0}
+.ok{background:#e9f0e6;color:#3f5a38;padding:.6rem .8rem;border-radius:3px;margin:.8rem 0}
+.row{display:flex;justify-content:space-between;gap:1rem;align-items:center}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.line{border-top:1px solid var(--line);margin:.8rem 0}
+.badge{font-size:.78rem;background:var(--beige);color:var(--brown);padding:.15rem .6rem;border-radius:99px;display:inline-block}
+.tl{list-style:none;padding:0;margin:.8rem 0 0;border-left:2px solid var(--sage);}
+.tl li{padding:0 0 .7rem 1rem;position:relative}.tl li:before{content:"";position:absolute;left:-7px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--sage-d)}
+.tl small{color:var(--brown);display:block}
+.tabs{display:flex;gap:.5rem;margin:1.5rem 0}
+table{width:100%;border-collapse:collapse}td,th{padding:.5rem;border-bottom:1px solid var(--line);text-align:left;font-size:.92rem}
+footer{margin-top:4rem;padding:2rem 0;border-top:1px solid var(--line);color:var(--brown);text-align:center;font-size:.9rem}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
