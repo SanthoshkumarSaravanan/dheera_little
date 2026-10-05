@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { QRCodeSVG } from 'qrcode.react'
 import { api, err, inr } from '../api'
 import { useApp } from '../App.jsx'
 
@@ -18,6 +19,7 @@ export default function Cart() {
   const [cfg, setCfg] = useState({ shipping_flat: 60, free_above: 999 })
   const [a, setA] = useState({ name: user?.name || '', phone: '', line1: '', line2: '', city: '', state: 'Tamil Nadu', pincode: '' })
   const [msg, setMsg] = useState(''); const [busy, setBusy] = useState(false)
+  const [upi, setUpi] = useState(null); const [utr, setUtr] = useState('')
   useEffect(() => { api.get('/config').then((r) => setCfg(r.data)) }, [])
   const subtotal = cart.reduce((t, i) => t + i.price * i.qty, 0)
   const ship = subtotal === 0 || subtotal >= cfg.free_above ? 0 : cfg.shipping_flat
@@ -31,7 +33,8 @@ export default function Cart() {
     setBusy(true)
     try {
       const { data } = await api.post('/orders', { items: cart.map(({ product_id, size_id, qty }) => ({ product_id, size_id, qty })), address: a })
-      if (data.dev_mode) {  // test mode: no Razorpay keys configured
+      if (data.mode === 'upi') { setUpi(data); setBusy(false); return }  // pay to our UPI ID, then enter UTR
+      if (data.mode === 'dev') {  // test mode: nothing configured
         const r = await api.post(`/payments/dev-confirm/${data.order_id}`); return done(r.data)
       }
       await loadRzp()
@@ -46,6 +49,12 @@ export default function Cart() {
         modal: { ondismiss: () => setBusy(false) },
       }).open()
     } catch (x) { setMsg(err(x)); setBusy(false) }
+  }
+
+  const submitUtr = async (e) => {
+    e.preventDefault(); setMsg(''); setBusy(true)
+    try { await api.post('/payments/upi-submit', { order_id: upi.order_id, utr }); setCart([]); nav('/orders', { state: { placed: upi.order_id, pending: true } }) }
+    catch (x) { setMsg(err(x)); setBusy(false) }
   }
 
   if (!cart.length) return <div className="empty"><h2>Your bag is empty</h2><Link className="btn" to="/">Browse dresses</Link></div>
@@ -72,6 +81,22 @@ export default function Cart() {
           {ship > 0 && <small>Free shipping on orders above {inr(cfg.free_above)}</small>}
         </div>
       </div>
+      {upi ? <div>
+        <h2>Pay with UPI</h2>
+        <div className="box" style={{ textAlign: 'center' }}>
+          <QRCodeSVG value={upi.upi_link} size={200} />
+          <p>Scan with GPay, PhonePe, Paytm or any UPI app</p>
+          <p>Pay exactly <strong>{inr(upi.amount)}</strong> to <strong>{upi.upi_id}</strong></p>
+          <a className="btn ghost sm" href={upi.upi_link}>Open UPI app on this phone</a>
+        </div>
+        <form onSubmit={submitUtr}>
+          <label>After paying, enter the 12-digit UTR / reference number shown in your UPI app</label>
+          <input required inputMode="numeric" pattern="[0-9]{12}" maxLength="12" value={utr} onChange={(e) => setUtr(e.target.value.replace(/\D/g, ''))} />
+          {msg && <div className="err">{msg}</div>}
+          <div style={{ marginTop: '1.2rem' }}><button className="btn" disabled={busy || utr.length !== 12}>{busy ? 'Please wait' : 'I have paid'}</button></div>
+          <small>Your order is placed once we confirm the payment in our account.</small>
+        </form>
+      </div> :
       <form onSubmit={pay}>
         <h2>Delivery address</h2>
         <label>Full name</label><input required value={a.name} onChange={set('name')} />
@@ -87,6 +112,6 @@ export default function Cart() {
         {!user && <div className="err">Please <Link to="/account">log in</Link> to place your order.</div>}
         <div style={{ marginTop: '1.4rem' }}><button className="btn" disabled={busy || !user}>{busy ? 'Please wait' : `Pay ${inr(subtotal + ship)} with UPI`}</button></div>
         <small>Pay with GPay, PhonePe, Paytm or any UPI app.</small>
-      </form>
+      </form>}
     </div>)
 }

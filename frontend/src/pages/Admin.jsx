@@ -7,10 +7,36 @@ export default function Admin() {
   const [tab, setTab] = useState('orders')
   return (<div>
     <div className="tabs">
+      <button className={'chip' + (tab === 'payments' ? ' on' : '')} onClick={() => setTab('payments')}>Payments to verify</button>
       <button className={'chip' + (tab === 'orders' ? ' on' : '')} onClick={() => setTab('orders')}>Orders</button>
       <button className={'chip' + (tab === 'products' ? ' on' : '')} onClick={() => setTab('products')}>Products</button>
     </div>
-    {tab === 'orders' ? <OrdersTab /> : <ProductsTab />}
+    {tab === 'payments' ? <PaymentsTab /> : tab === 'orders' ? <OrdersTab /> : <ProductsTab />}
+  </div>)
+}
+
+function PaymentsTab() {
+  const [list, setList] = useState(null); const [m, setM] = useState('')
+  const load = () => api.get('/admin/payments/pending').then((r) => setList(r.data))
+  useEffect(() => { load() }, [])
+  const act = async (id, a) => {
+    if (!window.confirm(a === 'confirm' ? 'Did you receive this payment in your UPI app or bank?' : 'Reject this payment and cancel the order?')) return
+    try { await api.post(`/admin/payments/${id}/${a}`); setM(a === 'confirm' ? `Order #${id} confirmed and placed` : `Order #${id} rejected`); load() } catch (e) { setM(err(e)) }
+  }
+  return (<div>
+    <h2>Payments to verify</h2>
+    <p>Match the amount and UTR with your UPI app or bank statement, then confirm. The order is placed only after you confirm.</p>
+    {m && <div className="ok">{m}</div>}
+    {list && !list.length && <div className="empty">No payments waiting for verification.</div>}
+    {list?.map((o) => (<div className="box" key={o.id}>
+      <div className="row"><strong>Order #{o.id} | {inr(o.total)}</strong><span className="badge">UTR {o.utr}</span></div>
+      <small>{o.address.name} | {o.customer.email} | {new Date(o.created_at).toLocaleString('en-IN')}</small>
+      {o.items.map((i, k) => <div key={k}>{i.name}, age {i.size_label} x {i.qty}</div>)}
+      <div style={{ marginTop: '.8rem' }}>
+        <button className="btn sm" onClick={() => act(o.id, 'confirm')}>Payment received, confirm</button>{' '}
+        <button className="btn ghost sm" onClick={() => act(o.id, 'reject')}>Not received, reject</button>
+      </div>
+    </div>))}
   </div>)
 }
 

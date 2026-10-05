@@ -6,4 +6,4 @@ export const err = (e) => {
   return d || 'Something went wrong. Please try again'
 }
 export const inr = (n) => '₹' + Number(n).toLocaleString('en-IN')
-export const STATUS = { PENDING_PAYMENT: 'Awaiting payment', PLACED: 'Placed', CONFIRMED: 'Confirmed', PACKED: 'Packed', SHIPPED: 'Shipped', OUT_FOR_DELIVERY: 'Out for delivery', DELIVERED: 'Delivered', CANCELLED: 'Cancelled' }
+export const STATUS = { PENDING_PAYMENT: 'Awaiting payment', PAYMENT_SUBMITTED: 'Payment under verification', PLACED: 'Placed', CONFIRMED: 'Confirmed', PACKED: 'Packed', SHIPPED: 'Shipped', OUT_FOR_DELIVERY: 'Out for delivery', DELIVERED: 'Delivered', CANCELLED: 'Cancelled' }

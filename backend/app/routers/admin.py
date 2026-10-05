@@ -8,7 +8,7 @@ from openpyxl import Workbook
 from sqlalchemy.orm import Session
 from ..models import Order, Product, ProductSize
 from ..security import get_db, admin_user
-from .shop import order_out, product_out, add_history
+from .shop import order_out, product_out, add_history, mark_paid
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(admin_user)])
 UPLOAD_DIR = "/data/uploads"
@@ -36,16 +36,32 @@ def update_order(oid: int, d: StatusIn, db: Session = Depends(get_db)):
 @router.get("/orders/export.xlsx")
 def export(db: Session = Depends(get_db)):
     wb = Workbook(); ws = wb.active; ws.title = "Orders"
-    ws.append(["Order ID", "Date", "Customer", "Email", "Phone", "Address", "Items", "Total (INR)", "Payment", "Status", "Courier", "Tracking No"])
+    ws.append(["Order ID", "Date", "Customer", "Email", "Phone", "Address", "Items", "Total (INR)", "Payment", "UTR / Payment ID", "Status", "Courier", "Tracking No"])
     for o in db.query(Order).filter(Order.payment_status == "PAID").order_by(Order.id):
         a = o.address
         ws.append([o.id, o.created_at.strftime("%Y-%m-%d %H:%M"), a["name"], o.user.email, a["phone"],
                    f'{a["line1"]} {a.get("line2","")}, {a["city"]}, {a["state"]} - {a["pincode"]}',
-                   "; ".join(f"{i.name} ({i.size_label}) x{i.qty}" for i in o.items), o.total, o.payment_status, o.order_status, o.courier, o.tracking_no])
+                   "; ".join(f"{i.name} ({i.size_label}) x{i.qty}" for i in o.items), o.total, o.payment_status, o.rzp_payment_id, o.order_status, o.courier, o.tracking_no])
     buf = io.BytesIO(); wb.save(buf); buf.seek(0)
     fn = f"orders-{datetime.utcnow():%Y%m%d}.xlsx"
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": f"attachment; filename={fn}"})
+
+@router.get("/payments/pending")
+def pending_payments(db: Session = Depends(get_db)):
+    return [order_out(o) for o in db.query(Order).filter(Order.payment_status == "VERIFYING").order_by(Order.id)]
+
+@router.post("/payments/{oid}/confirm")
+def confirm_payment(oid: int, db: Session = Depends(get_db)):
+    o = db.get(Order, oid)
+    if not o or o.payment_status != "VERIFYING": raise HTTPException(400, "No payment waiting for this order")
+    mark_paid(db, o, o.rzp_payment_id); return order_out(o)
+
+@router.post("/payments/{oid}/reject")
+def reject_payment(oid: int, db: Session = Depends(get_db)):
+    o = db.get(Order, oid)
+    if not o or o.payment_status != "VERIFYING": raise HTTPException(400, "No payment waiting for this order")
+    o.payment_status = "FAILED"; add_history(db, o, "CANCELLED", "Payment not received"); db.commit(); return order_out(o)
 
 @router.get("/products")
 def products(db: Session = Depends(get_db)):

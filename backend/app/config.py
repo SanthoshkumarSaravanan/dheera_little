@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""
+    UPI_ID: str = ""          # your UPI ID, e.g. dheeralittles@okhdfcbank
+    UPI_NAME: str = "Dheera Littles"
+    SMS_PROVIDER: str = ""    # msg91 | fast2sms (empty = no SMS)
+    SMS_API_KEY: str = ""
+    MSG91_TEMPLATE_ID: str = ""
     SHIPPING_FLAT: int = 60
     FREE_SHIPPING_ABOVE: int = 999
 

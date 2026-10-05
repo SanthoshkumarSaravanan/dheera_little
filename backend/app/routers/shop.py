@@ -1,4 +1,5 @@
 import hmac, hashlib, re, json
+from urllib.parse import quote
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -9,6 +10,7 @@ from ..security import get_db, current_user
 
 router = APIRouter(tags=["shop"])
 LIVE = bool(settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET)
+UPI_ON = bool(settings.UPI_ID) and not LIVE   # manual UPI: customer pays to your UPI ID, you confirm
 
 def product_out(p: Product):
     return {"id": p.id, "name": p.name, "description": p.description, "price": p.price, "category": p.category,
@@ -19,7 +21,7 @@ def product_out(p: Product):
 def order_out(o: Order):
     return {"id": o.id, "created_at": o.created_at.isoformat(), "order_status": o.order_status, "payment_status": o.payment_status,
             "subtotal": o.subtotal, "shipping": o.shipping, "total": o.total, "address": o.address,
-            "courier": o.courier, "tracking_no": o.tracking_no,
+            "courier": o.courier, "tracking_no": o.tracking_no, "utr": o.rzp_payment_id,
             "customer": {"name": o.user.name, "email": o.user.email, "phone": o.user.phone},
             "items": [{"name": i.name, "size_label": i.size_label, "qty": i.qty, "price": i.price} for i in o.items],
             "history": [{"status": h.status, "note": h.note, "at": h.created_at.isoformat()} for h in o.history]}
@@ -75,8 +77,13 @@ async def create_order(d: OrderIn, u: User = Depends(current_user), db: Session 
         if r.status_code >= 400: db.rollback(); raise HTTPException(502, "Payment gateway error. Try again")
         o.rzp_order_id = r.json()["id"]
     db.commit()
-    return {"order_id": o.id, "amount": o.total, "rzp_order_id": o.rzp_order_id,
-            "key_id": settings.RAZORPAY_KEY_ID if LIVE else None, "dev_mode": not LIVE}
+    mode = "razorpay" if LIVE else "upi" if UPI_ON else "dev"
+    out = {"order_id": o.id, "amount": o.total, "mode": mode, "rzp_order_id": o.rzp_order_id,
+           "key_id": settings.RAZORPAY_KEY_ID if LIVE else None}
+    if mode == "upi":
+        out.update(upi_id=settings.UPI_ID, payee=settings.UPI_NAME,
+                   upi_link=f"upi://pay?pa={quote(settings.UPI_ID, safe='@')}&pn={quote(settings.UPI_NAME)}&am={o.total}&cu=INR&tn={quote('Order ' + str(o.id))}")
+    return out
 
 def mark_paid(db: Session, o: Order, payment_id: str):
     if o.payment_status == "PAID": return  # idempotent (webhook + client verify)
@@ -86,6 +93,19 @@ def mark_paid(db: Session, o: Order, payment_id: str):
         if ps: ps.stock = max(0, ps.stock - i.qty)
     add_history(db, o, "PLACED", "Payment received. Order placed")
     db.commit()
+
+class UpiIn(BaseModel): order_id: int; utr: str = Field(pattern=r"^\d{12}$")
+
+@router.post("/payments/upi-submit")
+def upi_submit(d: UpiIn, u: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Customer paid to our UPI ID and submits the 12-digit UTR. Order is placed only after admin confirms."""
+    o = db.get(Order, d.order_id)
+    if not o or o.user_id != u.id or not UPI_ON: raise HTTPException(404, "Order not found")
+    if o.payment_status != "PENDING": raise HTTPException(400, "Payment details already submitted")
+    if db.query(Order).filter(Order.rzp_payment_id == d.utr).first(): raise HTTPException(400, "This UTR number was already used")
+    o.rzp_payment_id, o.payment_status = d.utr, "VERIFYING"
+    add_history(db, o, "PAYMENT_SUBMITTED", f"UTR {d.utr} submitted. Verifying payment")
+    db.commit(); return order_out(o)
 
 class VerifyIn(BaseModel): order_id: int; razorpay_payment_id: str; razorpay_signature: str
 
@@ -114,10 +134,10 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
 def dev_confirm(oid: int, u: User = Depends(current_user), db: Session = Depends(get_db)):
     """Test mode only (no Razorpay keys): simulates a successful UPI payment."""
     o = db.get(Order, oid)
-    if LIVE or not o or o.user_id != u.id: raise HTTPException(404, "Not available")
+    if LIVE or UPI_ON or not o or o.user_id != u.id: raise HTTPException(404, "Not available")
     mark_paid(db, o, f"dev_{oid}"); return order_out(o)
 
 @router.get("/orders/my")
 def my_orders(u: User = Depends(current_user), db: Session = Depends(get_db)):
-    qs = db.query(Order).filter_by(user_id=u.id, payment_status="PAID").order_by(Order.id.desc())
+    qs = db.query(Order).filter(Order.user_id == u.id, Order.payment_status.in_(["PAID", "VERIFYING"])).order_by(Order.id.desc())
     return [order_out(o) for o in qs]
